@@ -1,6 +1,8 @@
 package backoff
 
 import (
+	"context"
+	"slices"
 	"testing"
 	"time"
 )
@@ -97,6 +99,26 @@ func TestDuration(t *testing.T) {
 	}
 }
 
+func TestSleep(t *testing.T) {
+	base := 5 * time.Millisecond
+	cap := 20 * time.Millisecond
+	attempt := 1
+	wantMin := time.Duration(0)
+	wantMax := 10 * time.Millisecond
+
+	startTime := time.Now()
+	Sleep(base, cap, attempt)
+	elapsed := time.Since(startTime)
+
+	tolerance := 5 * time.Millisecond
+	if elapsed < wantMin {
+		t.Errorf("got %v, want >= %v", elapsed, wantMin)
+	}
+	if elapsed > wantMax+tolerance {
+		t.Errorf("got %v, want <= %v", elapsed, wantMax+tolerance)
+	}
+}
+
 func TestAfter(t *testing.T) {
 	base := 10 * time.Millisecond
 	cap := 50 * time.Millisecond
@@ -129,22 +151,66 @@ func TestAfter(t *testing.T) {
 	}
 }
 
-func TestSleep(t *testing.T) {
-	base := 5 * time.Millisecond
-	cap := 20 * time.Millisecond
-	attempt := 1
-	wantMin := time.Duration(0)
-	wantMax := 10 * time.Millisecond
+func TestAttempts(t *testing.T) {
+	t.Run("IteratesUpToMaxAttempts", func(t *testing.T) {
+		ctx := context.Background()
+		maxAttempts := 3
 
-	startTime := time.Now()
-	Sleep(base, cap, attempt)
-	elapsed := time.Since(startTime)
+		got := slices.Collect(Attempts(ctx, maxAttempts, 1, 1))
+		if want := []int{0, 1, 2}; !slices.Equal(got, want) {
+			t.Errorf("got %v, want %v", got, want)
+		}
+	})
 
-	tolerance := 5 * time.Millisecond
-	if elapsed < wantMin {
-		t.Errorf("got %v, want >= %v", elapsed, wantMin)
-	}
-	if elapsed > wantMax+tolerance {
-		t.Errorf("got %v, want <= %v", elapsed, wantMax+tolerance)
-	}
+	t.Run("StopsWhenConsumerBreaks", func(t *testing.T) {
+		ctx := context.Background()
+		maxAttempts := 3
+
+		var got []int
+		for attempt := range Attempts(ctx, maxAttempts, 1, 1) {
+			got = append(got, attempt)
+			if attempt == 1 {
+				break
+			}
+		}
+		if want := []int{0, 1}; !slices.Equal(got, want) {
+			t.Errorf("got %v, want %v", got, want)
+		}
+	})
+
+	t.Run("StopsWhenContextCanceledAfterFirstAttempt", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		maxAttempts := 3
+
+		var got []int
+		for attempt := range Attempts(ctx, maxAttempts, time.Second, time.Second) {
+			got = append(got, attempt)
+			cancel()
+		}
+		if want := []int{0}; !slices.Equal(got, want) {
+			t.Errorf("got %v, want %v", got, want)
+		}
+	})
+
+	t.Run("NoAttemptsWhenContextCanceled", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		maxAttempts := 1
+
+		got := slices.Collect(Attempts(ctx, maxAttempts, 1, 1))
+		if len(got) != 0 {
+			t.Errorf("got %v, want 0", got)
+		}
+	})
+
+	t.Run("ZeroMaxAttempts", func(t *testing.T) {
+		ctx := context.Background()
+		maxAttempts := 0
+
+		got := slices.Collect(Attempts(ctx, maxAttempts, 1, 1))
+		if len(got) != 0 {
+			t.Errorf("got %v, want 0", got)
+		}
+	})
 }

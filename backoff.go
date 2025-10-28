@@ -4,6 +4,8 @@ Package backoff implements a Full-Jitter exponential backoff helper for Go.
 package backoff
 
 import (
+	"context"
+	"iter"
 	"math/rand/v2"
 	"time"
 )
@@ -29,6 +31,12 @@ func Duration(base, cap time.Duration, attempt int) time.Duration {
 	return time.Duration(rand.N(int64(limit)))
 }
 
+// Sleep blocks for the delay produced by [Duration]. It is shorthand for
+// time.Sleep(Duration(base, cap, attempt)).
+func Sleep(base, cap time.Duration, attempt int) {
+	time.Sleep(Duration(base, cap, attempt))
+}
+
 // After returns a channel that will deliver the current time after the delay
 // produced by [Duration]. It is shorthand for
 // time.After(Duration(base, cap, attempt)).
@@ -36,8 +44,28 @@ func After(base, cap time.Duration, attempt int) <-chan time.Time {
 	return time.After(Duration(base, cap, attempt))
 }
 
-// Sleep blocks for the delay produced by [Duration]. It is shorthand for
-// time.Sleep(Duration(base, cap, attempt)).
-func Sleep(base, cap time.Duration, attempt int) {
-	time.Sleep(Duration(base, cap, attempt))
+// Attempts returns an iterator that yields zero-based attempts and waits for
+// the delay from [After] between successive attempts.
+func Attempts(ctx context.Context, maxAttempts int, base, cap time.Duration) iter.Seq[int] {
+	return func(yield func(int) bool) {
+		for attempt := range maxAttempts {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			if !yield(attempt) {
+				return
+			}
+
+			if attempt+1 < maxAttempts {
+				select {
+				case <-After(base, cap, attempt):
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+	}
 }
