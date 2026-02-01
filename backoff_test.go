@@ -156,7 +156,7 @@ func TestAttempts(t *testing.T) {
 		ctx := context.Background()
 		maxAttempts := 3
 
-		got := slices.Collect(Attempts(ctx, maxAttempts, 1, 1))
+		got := slices.Collect(Attempts(ctx, maxAttempts, time.Nanosecond, time.Nanosecond))
 		if want := []int{0, 1, 2}; !slices.Equal(got, want) {
 			t.Errorf("got %v, want %v", got, want)
 		}
@@ -167,7 +167,7 @@ func TestAttempts(t *testing.T) {
 		maxAttempts := 3
 
 		var got []int
-		for attempt := range Attempts(ctx, maxAttempts, 1, 1) {
+		for attempt := range Attempts(ctx, maxAttempts, time.Nanosecond, time.Nanosecond) {
 			got = append(got, attempt)
 			if attempt == 1 {
 				break
@@ -178,17 +178,19 @@ func TestAttempts(t *testing.T) {
 		}
 	})
 
-	t.Run("StopsWhenContextCanceledAfterFirstAttempt", func(t *testing.T) {
+	t.Run("StopsWhenContextCanceled", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		t.Cleanup(cancel)
 		maxAttempts := 3
 
 		var got []int
-		for attempt := range Attempts(ctx, maxAttempts, time.Second, time.Second) {
+		for attempt := range Attempts(ctx, maxAttempts, time.Millisecond, time.Millisecond) {
 			got = append(got, attempt)
-			cancel()
+			if attempt == 1 {
+				cancel()
+			}
 		}
-		if want := []int{0}; !slices.Equal(got, want) {
+		if want := []int{0, 1}; !slices.Equal(got, want) {
 			t.Errorf("got %v, want %v", got, want)
 		}
 	})
@@ -198,9 +200,9 @@ func TestAttempts(t *testing.T) {
 		cancel()
 		maxAttempts := 1
 
-		got := slices.Collect(Attempts(ctx, maxAttempts, 1, 1))
-		if len(got) != 0 {
-			t.Errorf("got %v, want 0", got)
+		got := slices.Collect(Attempts(ctx, maxAttempts, time.Nanosecond, time.Nanosecond))
+		if got != nil {
+			t.Errorf("got %v, want nil", got)
 		}
 	})
 
@@ -208,9 +210,9 @@ func TestAttempts(t *testing.T) {
 		ctx := context.Background()
 		maxAttempts := 0
 
-		got := slices.Collect(Attempts(ctx, maxAttempts, 1, 1))
-		if len(got) != 0 {
-			t.Errorf("got %v, want 0", got)
+		got := slices.Collect(Attempts(ctx, maxAttempts, time.Nanosecond, time.Nanosecond))
+		if got != nil {
+			t.Errorf("got %v, want nil", got)
 		}
 	})
 }

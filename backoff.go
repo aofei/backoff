@@ -45,14 +45,17 @@ func After(base, cap time.Duration, attempt int) <-chan time.Time {
 }
 
 // Attempts returns an iterator that yields zero-based attempts and waits for
-// the delay from [After] between successive attempts.
+// the delay from [Duration] between successive attempts.
 func Attempts(ctx context.Context, maxAttempts int, base, cap time.Duration) iter.Seq[int] {
 	return func(yield func(int) bool) {
+		if maxAttempts <= 0 {
+			return
+		}
+
+		var timer *time.Timer
 		for attempt := range maxAttempts {
-			select {
-			case <-ctx.Done():
+			if ctx.Err() != nil {
 				return
-			default:
 			}
 
 			if !yield(attempt) {
@@ -60,10 +63,22 @@ func Attempts(ctx context.Context, maxAttempts int, base, cap time.Duration) ite
 			}
 
 			if attempt+1 < maxAttempts {
+				delay := Duration(base, cap, attempt)
+				if delay <= 0 {
+					continue
+				}
+
+				if timer == nil {
+					timer = time.NewTimer(delay)
+					defer timer.Stop()
+				} else {
+					timer.Reset(delay)
+				}
+
 				select {
-				case <-After(base, cap, attempt):
 				case <-ctx.Done():
 					return
+				case <-timer.C:
 				}
 			}
 		}
