@@ -32,8 +32,8 @@ If you have any questions or ideas about this project, feel free to discuss them
 
 ## Contributing
 
-If you would like to contribute to this project, please submit issues [here](https://github.com/aofei/backoff/issues)
-or pull requests [here](https://github.com/aofei/backoff/pulls).
+If you would like to contribute to this project, please submit issues [here](https://github.com/aofei/backoff/issues) or
+pull requests [here](https://github.com/aofei/backoff/pulls).
 
 When submitting a pull request, please make sure its commit messages adhere to
 [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/).
