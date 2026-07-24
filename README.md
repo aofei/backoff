@@ -2,7 +2,6 @@
 
 [![Test](https://github.com/aofei/backoff/actions/workflows/test.yaml/badge.svg)](https://github.com/aofei/backoff/actions/workflows/test.yaml)
 [![codecov](https://codecov.io/gh/aofei/backoff/branch/master/graph/badge.svg)](https://codecov.io/gh/aofei/backoff)
-[![Go Report Card](https://goreportcard.com/badge/github.com/aofei/backoff)](https://goreportcard.com/report/github.com/aofei/backoff)
 [![Go Reference](https://pkg.go.dev/badge/github.com/aofei/backoff.svg)](https://pkg.go.dev/github.com/aofei/backoff)
 
 A Full-Jitter exponential backoff helper for Go.
